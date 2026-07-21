@@ -27,6 +27,27 @@ jobs:
     name: Cypress Test with PHP ${{ matrix.php-version }} browser ${{ matrix.browser }}
 
     steps:
+    - name: Serialize host apt with flock
+      run: |
+        set -euo pipefail
+        # Durable wrappers so setup-php / sudo apt-get share one host-wide lock.
+        sudo flock -w 600 /var/lock/ci-apt.lock bash -c '
+          set -euo pipefail
+          for cmd in apt-get apt; do
+            real="/usr/bin/$cmd"
+            bak="/usr/bin/$cmd.ci-unwrapped"
+            [ -x "$real" ] || continue
+            if [ -e "$bak" ] && grep -q ci-apt.lock "$real" 2>/dev/null; then
+              continue
+            fi
+            if [ ! -e "$bak" ]; then
+              cp -a "$real" "$bak"
+            fi
+            printf "#!/bin/bash\nexec flock -w 600 /var/lock/ci-apt.lock %s \"\$@\"\n" "$bak" > "$real"
+            chmod 755 "$real"
+          done
+        '
+
     - name: Checkout sources
       uses: actions/checkout@v2
 
