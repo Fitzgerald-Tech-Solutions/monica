@@ -5,6 +5,9 @@ on:
     branches-ignore:
       - 'l10n_master*'
 
+
+env:
+  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ secrets.GITHUB_TOKEN }}"}}'
 jobs:
   cypress-run:
     runs-on: [self-hosted]
