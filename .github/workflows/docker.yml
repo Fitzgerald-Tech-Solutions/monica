@@ -1,0 +1,41 @@
+name: Docker
+
+on:
+  push:
+#    branches:
+#      - 'master'
+
+jobs:
+  docker-run:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [apache, php-apache, fpm]
+    name: Docker generate ${{ matrix.variant }}
+
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v2
+
+    - name: Set some variables
+      id: vars
+      run: |
+        set -ex
+        echo "::set-output name=build_date::$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        echo "::set-output name=vcs_ref::$(git rev-parse --short ${{ github.sha }})"
+        tag=$(git describe --abbrev=0 --tags --exact-match ${{ github.sha }} 2>/dev/null || true)
+        if [ -z "$tag" ]; then tag=$(git rev-parse --abbrev-ref HEAD); fi
+        echo "::set-output name=tag::$tag"
+
+    - name: Build image
+      uses: docker/build-push-action@v1
+      with:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        repository: monicahq/monica/monica
+        registry: docker.pkg.github.com
+        dockerfile: scripts/docker/${{ matrix.variant }}/Dockerfile
+        build_args: BUILD_DATE=${{ steps.vars.outputs.build_date }},VCS_REF=${{ steps.vars.outputs.vcs_ref }},COMMIT=${{ github.sha }},VERSION=${{ steps.vars.outputs.tag }}
+        tags: ${{ matrix.variant }}, ${{ steps.vars.outputs.tag }}-${{ matrix.variant }}
+        push: false
